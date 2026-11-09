@@ -1,0 +1,108 @@
+{% extends "control/base.html" %}
+{% block titulo %}Capturar rostro{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-body p-4 text-center">
+                <h5>Capturar rostro de {{ estudiante.nombre }}</h5>
+                <p class="text-muted">Mira a la cámara, con buena luz y un solo rostro visible. Se tomarán {{ fotos_requeridas }} fotos automáticamente.</p>
+
+                <video id="video" autoplay playsinline class="rounded border w-100 mb-3" style="max-width:480px;"></video>
+                <canvas id="canvas" width="480" height="360" class="d-none"></canvas>
+
+                <div class="progress mb-3" style="height:24px;">
+                    <div id="barra" class="progress-bar" role="progressbar" style="width:0%">0 / {{ fotos_requeridas }}</div>
+                </div>
+
+                <p id="mensaje" class="text-muted small"></p>
+                <button id="btnEntrenar" class="btn btn-success d-none" onclick="entrenar()">Entrenar modelo y finalizar</button>
+                <a href="{% url 'dashboard' %}" id="btnFinal" class="btn btn-primary d-none">Ir al inicio</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const CODIGO = "{{ estudiante.cedula }}";
+const FOTOS_REQUERIDAS = {{ fotos_requeridas }};
+let fotosActuales = {{ fotos_actuales }};
+let capturando = false;
+
+function csrftoken() {
+    return document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1];
+}
+
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const barra = document.getElementById('barra');
+const mensaje = document.getElementById('mensaje');
+
+navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => { video.srcObject = stream; })
+    .catch(() => { mensaje.textContent = "No se pudo acceder a la cámara. Revisa los permisos del navegador."; });
+
+function actualizarBarra() {
+    const pct = Math.min(100, Math.round((fotosActuales / FOTOS_REQUERIDAS) * 100));
+    barra.style.width = pct + "%";
+    barra.textContent = `${fotosActuales} / ${FOTOS_REQUERIDAS}`;
+}
+actualizarBarra();
+
+async function capturarUnaFoto() {
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+    const resp = await fetch(`/api/capturar/${CODIGO}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken() },
+        body: JSON.stringify({ imagen: dataUrl })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+        fotosActuales = data.total;
+        actualizarBarra();
+        mensaje.textContent = "";
+        if (data.listo) {
+            capturando = false;
+            document.getElementById('btnEntrenar').classList.remove('d-none');
+            mensaje.textContent = "¡Fotos suficientes! Pulsa 'Entrenar modelo' para terminar.";
+        }
+    } else {
+        mensaje.textContent = data.error || "No se pudo capturar la foto, intenta de nuevo.";
+    }
+}
+
+async function cicloCaptura() {
+    if (!capturando) return;
+    if (fotosActuales < FOTOS_REQUERIDAS) {
+        await capturarUnaFoto();
+        setTimeout(cicloCaptura, 700);
+    }
+}
+
+video.addEventListener('loadedmetadata', () => {
+    capturando = true;
+    cicloCaptura();
+});
+
+async function entrenar() {
+    document.getElementById('btnEntrenar').disabled = true;
+    mensaje.textContent = "Entrenando modelo, espera un momento...";
+    const resp = await fetch('/api/entrenar/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken() }
+    });
+    const data = await resp.json();
+    if (data.ok) {
+        mensaje.textContent = `Modelo entrenado con ${data.estudiantes} estudiante(s) y ${data.fotos} fotos.`;
+        document.getElementById('btnEntrenar').classList.add('d-none');
+        document.getElementById('btnFinal').classList.remove('d-none');
+    } else {
+        mensaje.textContent = data.error || "Error al entrenar el modelo.";
+        document.getElementById('btnEntrenar').disabled = false;
+    }
+}
+</script>
+{% endblock %}

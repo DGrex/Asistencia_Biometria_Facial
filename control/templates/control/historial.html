@@ -1,0 +1,88 @@
+{% extends "control/base.html" %}
+{% block titulo %}Historial de asistencias{% endblock %}
+{% block contenido %}
+<h5 class="mb-3">Historial de asistencias</h5>
+
+<form method="get" class="card filtro-form mb-3">
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label">Desde</label>
+            <input type="date" name="desde" value="{{ filtros.desde }}" class="form-control">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Hasta</label>
+            <input type="date" name="hasta" value="{{ filtros.hasta }}" class="form-control">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Carrera</label>
+            <select name="carrera" class="form-select">
+                <option value="">Todas</option>
+                {% for c in carreras %}
+                <option value="{{ c.id }}" {% if filtros.carrera == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Curso</label>
+            <select name="curso" class="form-select">
+                <option value="">Todos</option>
+                {% for c in cursos %}
+                <option value="{{ c.id }}" {% if filtros.curso == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Materia</label>
+            <select name="materia" class="form-select">
+                <option value="">Todas</option>
+                {% for m in materias %}
+                <option value="{{ m.id }}" {% if filtros.materia == m.id|stringformat:"s" %}selected{% endif %}>{{ m.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Buscar estudiante</label>
+            <input type="text" name="q" value="{{ filtros.q }}" class="form-control" placeholder="Nombre o cédula">
+        </div>
+        <div class="col-12 d-flex gap-2 mt-2">
+            <button type="submit" class="btn btn-outline-primary">Filtrar</button>
+            <a href="{% url 'historial' %}" class="btn btn-outline-secondary">Limpiar</a>
+            <div class="ms-auto d-flex gap-2">
+                <a href="{% url 'historial_exportar_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">Exportar Excel</a>
+                <a href="{% url 'historial_exportar_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger">Exportar PDF</a>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between">
+        <span>Resultados</span>
+        <span class="text-muted">{{ total }} registro{{ total|pluralize }} {% if total > 500 %}(mostrando los primeros 500){% endif %}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if asistencias %}
+        <table class="table mb-0">
+            <thead>
+                <tr><th>Fecha</th><th>Hora</th><th>Estudiante</th><th>Cédula</th><th>Carrera</th><th>Curso</th><th>Materia</th></tr>
+            </thead>
+            <tbody>
+                {% for a in asistencias %}
+                <tr>
+                    <td>{{ a.fecha }}</td>
+                    <td>{{ a.hora }}</td>
+                    <td>{{ a.estudiante.nombre }}</td>
+                    <td>{{ a.estudiante.cedula }}</td>
+                    <td>{{ a.horario.curso.carrera.nombre }}</td>
+                    <td>{{ a.horario.curso.nombre }}</td>
+                    <td>{{ a.horario.materia.nombre }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted p-3 mb-0">No hay asistencias registradas con esos filtros.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

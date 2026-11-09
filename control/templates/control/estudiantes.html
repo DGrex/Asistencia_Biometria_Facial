@@ -1,0 +1,55 @@
+{% extends "control/base.html" %}
+{% block titulo %}Estudiantes{% endblock %}
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Estudiantes</h5>
+    <a href="{% url 'registrar_estudiante' %}" class="btn btn-primary btn-sm">Registrar estudiante</a>
+</div>
+
+<form method="get" class="card filtro-form mb-3">
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-md-5">
+            <label class="form-label">Buscar por nombre o cédula</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Ej: Juan Pérez o 1712345678">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Curso</label>
+            <select name="curso" class="form-select">
+                <option value="">Todos</option>
+                {% for c in cursos %}
+                <option value="{{ c.id }}" {% if curso_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }} - {{ c.carrera.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-outline-primary w-100">Filtrar</button>
+        </div>
+    </div>
+</form>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if estudiantes %}
+        <table class="table mb-0">
+            <thead>
+                <tr><th>Cédula</th><th>Nombre</th><th>Curso</th><th>Carrera</th><th>Rostro entrenado</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+                {% for e in estudiantes %}
+                <tr>
+                    <td>{{ e.cedula }}</td>
+                    <td>{{ e.nombre }}</td>
+                    <td>{{ e.curso.nombre|default:"Sin curso" }}</td>
+                    <td>{{ e.curso.carrera.nombre|default:"-" }}</td>
+                    <td>{% if e.rostro_entrenado %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+                    <td>{% if e.activo %}<span class="badge bg-primary">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted p-3 mb-0">No se encontraron estudiantes con ese filtro.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

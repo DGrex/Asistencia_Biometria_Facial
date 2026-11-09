@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+venv/
+env/
+.venv/
+db.sqlite3
+
+# Datos biométricos: nunca deben subirse al repositorio
+face_data/muestras/
+face_data/trainer.yml
+face_data/labels.json
+
+.vscode/
+*.log

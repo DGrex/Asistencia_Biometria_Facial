@@ -1,0 +1,126 @@
+{% extends "control/base.html" %}
+{% block titulo %}Tomar asistencia{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="mb-3">Seleccionar sesión de clase</h5>
+                <form method="get" class="row g-2 align-items-end">
+                    <div class="col-md-9">
+                        <label class="form-label">Curso, materia, día y hora</label>
+                        <select name="horario" class="form-select" onchange="this.form.submit()">
+                            <option value="">-- Selecciona un horario --</option>
+                            {% for h in horarios %}
+                            <option value="{{ h.id }}" {% if horario and horario.id == h.id %}selected{% endif %}>
+                                {{ h.curso.nombre }} ({{ h.curso.carrera.nombre }}) - {{ h.materia.nombre }} - {{ h.get_dia_semana_display }} {{ h.hora_inicio|time:"H:i" }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-outline-primary w-100">Ir</button>
+                    </div>
+                </form>
+                {% if not horarios %}
+                <div class="alert alert-warning mt-3 mb-0">
+                    No hay horarios de clase creados todavía. Créalos desde
+                    <a href="/admin/control/horario/add/" target="_blank">Configuración</a>.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if horario %}
+        <div class="card">
+            <div class="card-body text-center p-4">
+                <h6 class="mb-1">{{ horario.curso.nombre }} - {{ horario.materia.nombre }}</h6>
+                <p class="text-muted small">La asistencia tomada quedará registrada para el día de hoy en esta sesión de clase.</p>
+
+                <div class="position-relative d-inline-block">
+                    <video id="video" autoplay playsinline class="rounded border" style="max-width:640px; width:100%;"></video>
+                    <canvas id="overlay" class="position-absolute top-0 start-0"></canvas>
+                </div>
+                <canvas id="captura" class="d-none"></canvas>
+                <ul id="registros" class="list-group mt-3 text-start"></ul>
+            </div>
+        </div>
+
+        <script>
+        const HORARIO_ID = "{{ horario.id }}";
+
+        function csrftoken() {
+            return document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1];
+        }
+
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
+        const captura = document.getElementById('captura');
+        const registros = document.getElementById('registros');
+        const yaAnunciados = new Set();
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => { video.srcObject = stream; })
+            .catch(() => { alert("No se pudo acceder a la cámara."); });
+
+        video.addEventListener('loadedmetadata', () => {
+            overlay.width = video.videoWidth;
+            overlay.height = video.videoHeight;
+            captura.width = video.videoWidth;
+            captura.height = video.videoHeight;
+            overlay.style.width = video.clientWidth + "px";
+            overlay.style.height = video.clientHeight + "px";
+            ciclo();
+        });
+
+        function agregarRegistro(nombre, estado) {
+            if (estado === 'nueva') {
+                if (yaAnunciados.has(nombre)) return;
+                yaAnunciados.add(nombre);
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `${nombre} <span class="badge badge-estado-nueva">Asistencia registrada</span>`;
+                registros.prepend(li);
+            }
+        }
+
+        function dibujarCajas(resultados) {
+            const ctx = overlay.getContext('2d');
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+            resultados.forEach(r => {
+                const [x, y, w, h] = r.bbox;
+                ctx.strokeStyle = r.nombre ? '#16a34a' : '#dc2626';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x, y, w, h);
+                ctx.fillStyle = r.nombre ? '#16a34a' : '#dc2626';
+                ctx.font = "16px sans-serif";
+                ctx.fillText(r.nombre || "No reconocido", x, y > 20 ? y - 6 : y + h + 16);
+            });
+        }
+
+        async function ciclo() {
+            const ctx = captura.getContext('2d');
+            ctx.drawImage(video, 0, 0, captura.width, captura.height);
+            const dataUrl = captura.toDataURL('image/jpeg', 0.75);
+
+            try {
+                const resp = await fetch('/api/reconocer/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken() },
+                    body: JSON.stringify({ imagen: dataUrl, horario_id: HORARIO_ID })
+                });
+                const data = await resp.json();
+                if (data.ok) {
+                    dibujarCajas(data.resultados);
+                    data.resultados.forEach(r => { if (r.nombre) agregarRegistro(r.nombre, r.estado); });
+                }
+            } catch (e) { /* se reintenta en el siguiente ciclo */ }
+
+            setTimeout(ciclo, 1200);
+        }
+        </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

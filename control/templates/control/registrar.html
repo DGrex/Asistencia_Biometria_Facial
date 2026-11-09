@@ -1,0 +1,45 @@
+{% extends "control/base.html" %}
+{% block titulo %}Registrar estudiante{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body p-4">
+                <h5 class="mb-3">Registrar nuevo estudiante</h5>
+                {% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+                {% if not cursos %}
+                <div class="alert alert-warning py-2">
+                    Todavía no hay cursos creados. Puedes registrar al estudiante sin curso y
+                    asignárselo después, o crear primero un curso desde
+                    <a href="/admin/control/curso/add/" target="_blank">Configuración</a>.
+                </div>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Cédula de identidad</label>
+                        <input type="text" name="cedula" class="form-control" required
+                               maxlength="10" minlength="10" pattern="\d{10}"
+                               placeholder="Ej: 1712345678"
+                               title="Ingresa los 10 dígitos de la cédula ecuatoriana">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre completo</label>
+                        <input type="text" name="nombre" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Curso</label>
+                        <select name="curso" class="form-select">
+                            <option value="">Sin asignar</option>
+                            {% for c in cursos %}
+                            <option value="{{ c.id }}">{{ c.nombre }} - {{ c.carrera.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Continuar y capturar rostro</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
