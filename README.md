@@ -1,20 +1,20 @@
-# Control de Asistencia por Reconocimiento Facial
+# Sistema de Control de Asistencia por Reconocimiento Facial
 
-Proyecto para la práctica de Construcción de Software (UNEMI).
-Detecta rostros con OpenCV y registra asistencia automáticamente al
-reconocer a cada estudiante previamente registrado, organizada por
-carrera, curso, materia y horario de clase.
+Sistema web que detecta y reconoce rostros en tiempo real para registrar asistencia de estudiantes de forma automática. Organiza los registros por carrera, curso, materia y horario de clase.
 
-**Stack:** Django + OpenCV (cv2 + LBPH) + PostgreSQL (Neon).
-No se descarga ningún modelo externo: el detector (Haar Cascade) y el
-reconocedor (LBPH) vienen incluidos en `opencv-contrib-python`.
+**Stack:** Django · OpenCV (Haar Cascade + LBPH) · PostgreSQL
 
-## 1. Requisitos previos
+No requiere descargar modelos externos: el detector y el reconocedor vienen incluidos en `opencv-contrib-python`.
+
+---
+
+## Requisitos
+
 - Python 3.10+
-- Una base de datos PostgreSQL (por ejemplo, un proyecto en Neon)
+- PostgreSQL (local o en la nube, por ejemplo [Neon](https://neon.tech))
 - Cámara web
 
-## 2. Instalación
+## Instalación
 
 ```bash
 # 1. Crear y activar entorno virtual
@@ -28,88 +28,77 @@ pip install -r requirements.txt
 # 3. Configurar variables de entorno
 copy .env.example .env       # Windows
 # cp .env.example .env       # Linux/Mac
-# Edita .env con tus credenciales reales de PostgreSQL/Neon y una SECRET_KEY propia.
+# Edita .env con tus credenciales de PostgreSQL y una SECRET_KEY propia.
 
-# 4. Migraciones
+# 4. Aplicar migraciones
 python manage.py makemigrations
 python manage.py migrate
 
-# 5. Crear usuario profesor
+# 5. Crear usuario administrador (profesor)
 python manage.py createsuperuser
 
-# 6. Ejecutar el servidor
+# 6. Iniciar el servidor
 python manage.py runserver
 ```
 
-Abre `http://127.0.0.1:8000/` e inicia sesión con el usuario creado.
+Accede en `http://127.0.0.1:8000/` e inicia sesión con el usuario creado.
 
-## 3. Configurar Carreras, Materias, Cursos y Horarios
-Antes de registrar estudiantes y tomar asistencia, entra a
-`http://127.0.0.1:8000/admin/` (con tu usuario profesor) y crea, en este
-orden:
-1. **Carreras** (ej. "Software")
-2. **Materias** (ej. "Construcción de Software", asociada a una carrera)
-3. **Cursos** (ej. "Quinto A", asociado a una carrera)
-4. **Horarios de clase** (ej. Curso "Quinto A" + Materia "Construcción de
-   Software" + día "Lunes" + hora de inicio/fin)
+---
 
-Esto permite que la asistencia se organice por carrera, curso y materia,
-y que cada día sea un registro nuevo e independiente por cada sesión de
-clase (horario).
+## Configuración inicial
 
-## 4. Flujo de uso diario
-1. **Estudiantes → Registrar estudiante**: ingresa código, nombre y el
-   curso al que pertenece; luego la cámara toma automáticamente 15 fotos
-   del rostro.
-2. Al completar las fotos, pulsa **"Entrenar modelo"** (esto puede repetirse
-   cada vez que agregues un estudiante nuevo).
-3. **Tomar asistencia**: primero elige el horario de clase (curso +
-   materia + día + hora), luego abre la cámara en vivo. Cuando reconoce a
-   un estudiante, marca su asistencia para esa sesión y ese día
-   automáticamente (una sola vez por día y por horario, no se duplica).
-4. **Historial**: consulta todas las asistencias tomadas, con filtros por
-   fecha, carrera, curso, materia o nombre/código de estudiante. Desde
-   ahí puedes exportar los resultados filtrados a **Excel** o **PDF**.
+Antes de registrar estudiantes, entra al panel de administración (`/admin/`) y crea los siguientes elementos **en orden**:
 
-## 5. Decisiones de seguridad
-- Todas las vistas (excepto el login) requieren sesión iniciada **y**
-  que el usuario sea `staff` (profesor), evitando que cualquier
-  visitante registre estudiantes o vea asistencias.
-- Las fotos de rostros y el modelo entrenado se guardan en `face_data/`,
-  **fuera** de las carpetas servidas públicamente (`static/`/`media/`),
-  para que nunca queden accesibles por URL.
-- Protección CSRF activa en todos los formularios y llamadas AJAX.
-- Las imágenes recibidas por la cámara se validan (tipo y tamaño máximo)
-  antes de procesarse, para evitar cargas maliciosas.
-- Credenciales de base de datos y `SECRET_KEY` se leen desde `.env`
-  (nunca quedan escritas en el código ni se suben a GitHub).
-- `face_data/` y `.env` están en `.gitignore`: los datos biométricos de
-  los estudiantes nunca se suben al repositorio.
-- El umbral de confianza del reconocimiento (`LBPH_CONFIDENCE_THRESHOLD`)
-  evita que el sistema fuerce una coincidencia cuando no está seguro;
-  en ese caso marca el rostro como "no reconocido" en vez de arriesgar
-  una asistencia incorrecta.
+1. **Carreras** — ej. "Ingeniería en Software"
+2. **Materias** — ej. "Bases de Datos", asociada a una carrera
+3. **Cursos** — ej. "Quinto A", asociado a una carrera
+4. **Horarios de clase** — combinación de curso + materia + día + hora de inicio/fin
 
-## 6. Estructura del proyecto
+Cada sesión de asistencia queda vinculada a un horario específico, lo que permite tener registros independientes por día y por materia.
+
+---
+
+## Uso
+
+### 1. Registrar un estudiante
+Ve a **Estudiantes → Registrar estudiante**, ingresa el código, nombre y curso. La cámara captura automáticamente 15 fotos del rostro del estudiante.
+
+### 2. Entrenar el modelo
+Después de registrar uno o más estudiantes, pulsa **"Entrenar modelo"**. Repite este paso cada vez que agregues un nuevo estudiante.
+
+### 3. Tomar asistencia
+En **Tomar asistencia**, selecciona el horario de la sesión (curso + materia + día + hora) y activa la cámara. El sistema reconoce los rostros en tiempo real y marca la asistencia automáticamente. Cada estudiante solo se registra una vez por sesión.
+
+### 4. Consultar historial
+La sección **Historial** muestra todos los registros con filtros por fecha, carrera, curso, materia y nombre/código de estudiante. Desde ahí se puede exportar a **Excel** o **PDF**.
+
+---
+
+## Seguridad
+
+- Todas las vistas requieren sesión activa con permisos de staff (profesor).
+- Las fotos y el modelo entrenado se almacenan en `face_data/`, fuera de las carpetas públicas, inaccesibles por URL.
+- Protección CSRF activa en formularios y llamadas AJAX.
+- Las imágenes recibidas por la cámara se validan (tipo y tamaño) antes de procesarse.
+- Credenciales y `SECRET_KEY` se leen desde `.env`, nunca escritas en el código.
+- `face_data/` y `.env` están en `.gitignore`: los datos biométricos nunca se suben al repositorio.
+- El umbral de confianza LBPH evita coincidencias forzadas; cuando no hay seguridad suficiente, el rostro se marca como "no reconocido".
+
+---
+
+## Estructura del proyecto
+
 ```
 asistencia_app/
-├── asistencia/        # Configuración del proyecto Django
-├── control/            # App principal (modelos, vistas, templates, OpenCV)
-│   ├── utils.py         # Lógica de detección y reconocimiento facial
-│   ├── exports.py        # Exportación a Excel y PDF
-│   ├── models.py         # Carrera, Materia, Curso, Horario, Estudiante, Asistencia
-│   └── templates/
-├── face_data/           # Fotos y modelo entrenado (NO se sube a git)
+├── asistencia/          # Configuración del proyecto Django
+├── control/             # App principal
+│   ├── models.py        # Carrera, Materia, Curso, Horario, Estudiante, Asistencia
+│   ├── views.py         # Vistas y lógica de negocio
+│   ├── utils.py         # Detección y reconocimiento facial (OpenCV)
+│   ├── exports.py       # Exportación a Excel y PDF
+│   └── templates/       # Plantillas HTML
+├── face_data/           # Fotos y modelo entrenado (no se sube a git)
 ├── requirements.txt
 ├── .env.example
 └── manage.py
 ```
-
-## 7. Notas para el video demostrativo
-Con este flujo puedes grabar en menos de 3 minutos:
-1. Iniciar sesión y mostrar la configuración (carrera, curso, materia, horario).
-2. Registrar un estudiante y capturar su rostro.
-3. Entrenar el modelo.
-4. Ir a "Tomar asistencia", elegir el horario y mostrar cómo se reconoce
-   y se registra automáticamente.
-5. Mostrar el "Historial" con un filtro aplicado y exportar a Excel o PDF.
